@@ -1104,6 +1104,11 @@ def update_proposal(
                     for student_id, approval in member_approvals.items()
                 ],
             )
+        if settled:
+            cur.execute(
+                "update swap_chain_members set settled = true where proposal_id = %s",
+                (proposal_id,),
+            )
         conn.commit()
 
 
