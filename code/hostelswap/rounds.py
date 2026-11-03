@@ -13,6 +13,7 @@ from . import db
 from .domain.pipeline import recommend_chains
 from .domain.proposal import InvalidTransition, Move, Proposal, ProposalStatus, Response
 from .domain.proposal import execute as domain_execute
+from .domain.proposal import expire_if_due
 from .domain.proposal import respond as domain_respond
 
 PROPOSAL_LIFETIME = timedelta(days=3)
@@ -173,6 +174,9 @@ def offer_chain(
         }
         for m in members
     ]
+    # An unanswered chain past its deadline must not keep its members
+    # out of this one.
+    db.expire_due_proposals(connection_string)
     return db.insert_proposal(
         connection_string, round_id, option_kind, mean_match, len(members),
         expires_at, insert_members, offering_roll_no=student_roll_no,
@@ -194,6 +198,9 @@ def respond(connection_string: str, proposal_id: str, student_roll_no: str, acce
         id=data["id"], moves=moves, status=ProposalStatus(data["status"]),
         expires_at=data["expiresAt"], settled_at=data["settledAt"],
     )
+    if expire_if_due(current, now).status is ProposalStatus.EXPIRED:
+        db.update_proposal(connection_string, proposal_id, "expired", {}, settled=True)
+        raise InvalidRoundState("this proposal has expired")
     try:
         updated = domain_respond(current, student_roll_no, accept, now)
     except InvalidTransition as exc:
