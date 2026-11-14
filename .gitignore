@@ -477,3 +477,4 @@ frontend/node_modules/
 # Private keys (e.g. the EC2 SSH key) never belong in the repo.
 *.pem
 *.key
+code/demo_credentials.csv
