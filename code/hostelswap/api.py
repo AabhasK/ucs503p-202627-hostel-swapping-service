@@ -254,8 +254,12 @@ def login(body: LoginBody, response: Response):
 
     token = auth.new_session_token()
     db.create_session(connection, token, student["id"], auth.session_expiry())
+    # Secure: the browser never sends the session over plain HTTP. Only
+    # in production, since local dev runs on http://localhost, where
+    # Safari drops Secure cookies and login would silently fail.
     response.set_cookie(
         auth.COOKIE_NAME, token, httponly=True, samesite="lax",
+        secure=db.is_production(),
         max_age=int(auth.SESSION_LIFETIME.total_seconds()),
     )
     return {"role": student["role"], "name": student["name"], "rollNo": student["roll_no"]}
@@ -272,7 +276,9 @@ def logout(
     # holding it until the cache entry aged out.
     db.delete_session(_connection(), session)
     auth.forget_session(session)
-    response.delete_cookie(auth.COOKIE_NAME)
+    response.delete_cookie(
+        auth.COOKIE_NAME, httponly=True, samesite="lax", secure=db.is_production()
+    )
     return {"ok": True}
 
 

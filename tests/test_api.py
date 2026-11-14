@@ -67,3 +67,27 @@ def test_each_student_holds_a_room_of_their_own():
     rooms = [row["room"] for row in DEMO["students"]]
 
     assert len(rooms) == len(set(rooms))
+
+
+def _login_cookie(monkeypatch, app_env):
+    from hostelswap import auth, db
+
+    if app_env:
+        monkeypatch.setenv("APP_ENV", app_env)
+    monkeypatch.setenv("DATABASE_URL", "postgresql://unused")
+    monkeypatch.setattr(db, "fetch_student_credentials", lambda *_: {
+        "id": "s1", "role": "student", "name": "Test", "roll_no": "1",
+        "password_hash": auth.hash_password("pw"),
+    })
+    monkeypatch.setattr(db, "create_session", lambda *_: None)
+    response = client.post("/api/auth/login", json={"identifier": "1", "password": "pw"})
+    assert response.status_code == 200
+    return response.headers["set-cookie"].lower()
+
+
+def test_session_cookie_is_secure_in_production(monkeypatch):
+    assert "; secure" in _login_cookie(monkeypatch, "production")
+
+
+def test_session_cookie_works_over_http_in_development(monkeypatch):
+    assert "; secure" not in _login_cookie(monkeypatch, None)
