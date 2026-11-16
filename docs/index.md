@@ -7,7 +7,11 @@
 
 **Author(s)**:
 
-Aabhas Khandelwal, CSED `<roll -at- thapar -dot- edu>`
+- Aabhas Khandelwal, CSED, `1024030673`
+- Aakash Chawla, CSED, `1024031097`
+- Joy Soni, CSED, `1024030674`
+
+Group `3C51`, under Dr. Raghav B. Venkataramaiyer.
 
 ![A hostel at TIET](assets/hostel-m.png)
 
@@ -59,9 +63,36 @@ over bed slots, and the swap chains are that permutation's cycles.
 ## Running it
 
 ``` shell
-pip install -e ".[dev]"
+pip install -e "./code[dev]"
 pytest -q
 uvicorn hostelswap.api:app --reload
 ```
 
-Then open <http://127.0.0.1:8000>.
+Then open <http://127.0.0.1:8000>. Without `DATABASE_URL` the app
+serves a built-in demo cohort, so no database is needed to try it.
+
+To work on the web UI, run the Vite dev server next to the API. It
+proxies `/api` to port 8000:
+
+``` shell
+npm --prefix frontend install
+npm --prefix frontend run dev
+```
+
+## Status
+
++ Matching engine, fairness filter and ranking: done, unit-tested.
++ Swap rounds: enroll, set priorities, lock, run, offer chains,
+  respond, execute.
++ FastAPI backend with student and admin logins, on Postgres
+  (Supabase), with schema migrations in `db/migrations/`.
++ React + TypeScript web UI for students and admins.
++ 137 tests passing.
+
+## Journals
+
+Weekly journals, one folder per member:
+
++ [Aabhas Khandelwal](journals/1024030673-Aabhas/index.md)
++ [Aakash Chawla](journals/1024031097-Aakash/w2-schema-enum-mismatch.md)
++ [Joy Soni](journals/1024030674-Joy/w2-ui-fixes.md)

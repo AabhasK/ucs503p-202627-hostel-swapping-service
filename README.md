@@ -23,7 +23,7 @@ journals/                weekly journals, one folder per member
 ``` shell
 python -m venv .venv
 .venv/Scripts/activate      # source .venv/bin/activate on linux
-pip install -e ".[dev]"
+pip install -e "./code[dev]"
 pytest -q
 ```
 
