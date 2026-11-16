@@ -1104,6 +1104,29 @@ def update_proposal(
                     for student_id, approval in member_approvals.items()
                 ],
             )
+        if settled:
+            cur.execute(
+                "update swap_chain_members set settled = true where proposal_id = %s",
+                (proposal_id,),
+            )
+        conn.commit()
+
+
+def expire_due_proposals(connection_string: str) -> None:
+    """Expire every proposal still collecting approvals past its deadline,
+    and free its members for other chains."""
+    with _pool(connection_string).connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            with expired as (
+                update swap_proposals set status = 'expired', settled_at = now()
+                where status = 'proposed' and expires_at < now()
+                returning id
+            )
+            update swap_chain_members set settled = true
+            where proposal_id in (select id from expired)
+            """
+        )
         conn.commit()
 
 
