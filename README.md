@@ -14,7 +14,7 @@ code/hostelswap/synth    synthetic pools for demos and benchmarks
 code/hostelswap/api.py   fastapi app
 db/migrations/           schema, as numbered migrations (python db/migrate.py)
 tests/                   pytest suite
-docs/                    mkdocs site, published from master
+docs/                    mkdocs site, published from main
 journals/                weekly journals, one folder per member
 ```
 
