@@ -28,46 +28,42 @@ class Assignment:
         return len(self.slot_by_student)
 
 
-def _constrained_costs(
-    matrix: CostMatrix, forbidden: Iterable[Edge], required: Iterable[Edge]
-) -> np.ndarray:
-    costs = matrix.costs.copy()
-
-    for student_id, slot_id in forbidden:
-        costs[matrix.row_of(student_id), matrix.column_of(slot_id)] = INFEASIBLE
-
-    for student_id, slot_id in required:
-        row, column = matrix.row_of(student_id), matrix.column_of(slot_id)
-        keep = costs[row, column]
-        # Poison the rest of the row and column so the solver has no
-        # alternative. Avoids carving submatrices for Murty's.
-        costs[row, :] = INFEASIBLE
-        costs[:, column] = INFEASIBLE
-        costs[row, column] = keep
-
-    return costs
-
-
 def solve(
     matrix: CostMatrix,
     forbidden: Iterable[Edge] = (),
     required: Iterable[Edge] = (),
 ) -> Assignment:
-    costs = _constrained_costs(matrix, forbidden, required)
+    """Best assignment with some edges forbidden and some fixed.
+
+    Fixed edges are cut out of the matrix rather than forced by setting
+    the rest of their row and column to infinity, so each of Murty's
+    subproblems is smaller than its parent instead of the same size.
+    """
+    fixed = {matrix.row_of[s]: matrix.column_of[t] for s, t in required}
+    rows = [r for r in range(len(matrix.student_ids)) if r not in fixed]
+    taken = set(fixed.values())
+    columns = [c for c in range(len(matrix.slot_ids)) if c not in taken]
+    sub_row = {r: i for i, r in enumerate(rows)}
+    sub_column = {c: j for j, c in enumerate(columns)}
+
+    costs = matrix.costs[np.ix_(rows, columns)]
+    for s, t in forbidden:
+        # A forbidden edge whose row or column is fixed is already excluded.
+        i, j = sub_row.get(matrix.row_of[s]), sub_column.get(matrix.column_of[t])
+        if i is not None and j is not None:
+            costs[i, j] = INFEASIBLE
 
     try:
-        rows, columns = linear_sum_assignment(costs)
+        picked_rows, picked_columns = linear_sum_assignment(costs)
     except ValueError as exc:
         raise NoFeasibleAssignment("hard constraints cannot all be met") from exc
 
-    total = float(costs[rows, columns].sum())
+    pairs = fixed | {rows[i]: columns[j] for i, j in zip(picked_rows, picked_columns)}
+    total = float(sum(matrix.costs[r, c] for r, c in pairs.items()))
     if not np.isfinite(total):
         raise NoFeasibleAssignment("hard constraints cannot all be met")
 
     return Assignment(
-        slot_by_student={
-            matrix.student_ids[row]: matrix.slot_ids[column]
-            for row, column in zip(rows, columns)
-        },
+        slot_by_student={matrix.student_ids[r]: matrix.slot_ids[c] for r, c in pairs.items()},
         cost=total,
     )

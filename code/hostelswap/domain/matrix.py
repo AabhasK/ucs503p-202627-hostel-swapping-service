@@ -2,6 +2,7 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from functools import cached_property
 
 import numpy as np
 
@@ -28,11 +29,15 @@ class CostMatrix:
     def score_for(self, student_id: str, slot_id: str) -> Score:
         return self.scores[(student_id, slot_id)]
 
-    def row_of(self, student_id: str) -> int:
-        return self.student_ids.index(student_id)
+    # Built once per matrix: Murty's search calls the solver thousands of
+    # times, and an O(n) id lookup per edge per call adds up.
+    @cached_property
+    def row_of(self) -> Mapping[str, int]:
+        return {s: i for i, s in enumerate(self.student_ids)}
 
-    def column_of(self, slot_id: str) -> int:
-        return self.slot_ids.index(slot_id)
+    @cached_property
+    def column_of(self) -> Mapping[str, int]:
+        return {s: i for i, s in enumerate(self.slot_ids)}
 
 
 def build_matrix(pool: SwapPool) -> CostMatrix:
