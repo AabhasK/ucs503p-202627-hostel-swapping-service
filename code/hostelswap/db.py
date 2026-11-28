@@ -865,9 +865,16 @@ def fetch_round_results(connection_string: str, round_id: str) -> dict | None:
                    o.option_kind, o.chain_no, s.id, s.roll_no, s.name,
                    fh.code, fr.room_no, tr.room_no, o.match_value,
                    o.from_slot_id, o.to_slot_id,
+                   -- Taken while in a ring still collecting replies, or
+                   -- once a ring in this round has moved them: their old
+                   -- room is gone. A rejected, expired or cancelled ring
+                   -- frees them, as migration 0002 does for the index.
                    exists (
                        select 1 from swap_chain_members m
-                       where m.student_id = s.id and m.approval <> 'rejected'
+                       join swap_proposals p on p.id = m.proposal_id
+                       where m.student_id = s.id
+                         and (not m.settled
+                              or (p.status = 'executed' and p.round_id = r.id))
                    ) as committed
             from swap_rounds r
             left join round_chain_options o on o.round_id = r.id
@@ -907,21 +914,6 @@ def fetch_round_results(connection_string: str, round_id: str) -> dict | None:
             for (kind, chain_no), members in chains.items()
         ],
     }
-
-
-def committed_students(connection_string: str) -> set[str]:
-    """Students already spoken for by a live or executed proposal.
-
-    A rejected proposal releases everyone in it, so those rows are the
-    only ones that do not count. Anyone else here has their rooms
-    reserved, which makes every recommended chain they appear in
-    unavailable to the rest of the round.
-    """
-    with _pool(connection_string).connection() as conn, conn.cursor() as cur:
-        cur.execute(
-            "select distinct student_id from swap_chain_members where approval <> 'rejected'"
-        )
-        return {str(row[0]) for row in cur.fetchall()}
 
 
 def fetch_chain_options(connection_string: str, round_id: str) -> list[dict]:
