@@ -21,6 +21,12 @@
 ]{biblatex}
 \addbibresource{references.bib}
 
+% Start chapters on the next page, not the next right-hand page, so no
+% blank pages are inserted (the class itself stays unchanged).
+\makeatletter
+\@openrightfalse
+\makeatother
+
 %% ==================================================
 %% CUSTOMIZE THESE FIELDS FOR YOUR PROJECT
 %% ==================================================
