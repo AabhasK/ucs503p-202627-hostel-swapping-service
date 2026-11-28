@@ -1,0 +1,92 @@
+% ==================================================
+% CHAPTER 9: CONCLUSION
+% ==================================================
+
+\chapter{Conclusion}
+\label{ch:conclusion}
+
+\section{Summary}
+
+The Hostel Room Swapping Service turns a problem students try to solve
+one conversation at a time into a single computation over the whole
+hostel. Because the only rooms in play are the ones the participants
+already hold, every solution is a permutation of students over bed
+slots, and its cycles are the swap chains. The engine scores rooms
+against weighted hard and soft preferences, finds the best assignment
+with the Hungarian algorithm and its alternatives with Murty's
+algorithm, keeps only chains in which nobody loses, and offers each
+student their own best chains, capped at eight members. Around the
+engine, the project built a round workflow and an approval state
+machine with expiry, a FastAPI backend with session authentication, a
+PostgreSQL schema whose key invariants are enforced by the database, and
+a React interface for students and wardens.
+
+\section{Achievements}
+
+\begin{enumerate}
+  \item \textbf{Large gains with nobody worse off}: on the frozen
+  30-student cohort one round raises mean satisfaction from 11\% to
+  77\%, with 20 students in their exact requested room and zero worse
+  off.
+  \item \textbf{Executable, not only optimal}: Murty's alternatives cut
+  the longest chain needing joint approval from 28 students to 11 at no
+  cost in satisfaction.
+  \item \textbf{A measured design choice}: a ten-cohort, 300-student
+  benchmark chose the chain cap of eight, which reaches 58\% of students
+  with chains that need far fewer approvals than uncapped ones.
+  \item \textbf{No student trapped}: one refusal frees the whole chain,
+  silence expires after three days, and a finished swap frees its
+  members, enforced both in code and by a database index.
+  \item \textbf{An auditable record}: allocation history that no client
+  can rewrite.
+  \item \textbf{A faster search}: Murty's subproblems now shrink as
+  edges are fixed, making the search 4--13 times faster with identical
+  results.
+  \item \textbf{Engineering discipline}: a framework-free domain, 152
+  automated tests run in CI on three Python versions, numbered
+  migrations, and weekly journals of problems, causes and fixes.
+\end{enumerate}
+
+\section{Limitations}
+
+\begin{itemize}
+  \item The engine has been evaluated only on synthetic cohorts, not on
+  real registrations for a live hostel.
+  \item With the cap of eight, about 42\% of students in a 300-student
+  cohort get no offer. A long cycle cannot be split, so these matches
+  are lost, not delayed.
+  \item The live search budget ($K = 50$) is smaller than the one
+  benchmarked ($K = 200$), so live reach on large cohorts is lower than
+  the benchmark figures. The faster search makes a larger $K$
+  affordable, but the live default has not been raised yet.
+  \item Shared rooms and roommate requests are supported and unit-tested
+  but not part of the evaluation cohorts.
+  \item The login endpoint has no rate limit.
+  \item The service is deployed but has not yet run a round with real
+  students.
+\end{itemize}
+
+\section{Future Work}
+
+\begin{enumerate}
+  \item Run a pilot round with real registrations for one hostel.
+  \item Rate-limit login attempts.
+  \item Raise the live $K$ now that the search is faster, after
+  measuring how reach on large cohorts grows with it.
+  \item Warm-start Murty's subproblems from the parent's dual
+  potentials, bringing the search towards $O(Kn^3)$.
+  \item Notify students by email when a chain that includes them is
+  offered, so fewer proposals expire unanswered.
+\end{enumerate}
+
+\section{Final Remarks}
+
+The central idea of the project held up: a hostel's swap requests can
+be solved as one closed assignment problem, and the chains fall out of
+its cycle structure instead of being searched for. The measurements
+showed that the optimal answer is not the useful one. The useful answer
+is the one a group of real students can agree on, which is why Murty's
+alternatives, the Pareto filter, the chain cap and the expiry rules
+matter as much as the Hungarian solve itself. The remaining work is
+mostly about meeting real students and real data, not about redesigning
+the approach.

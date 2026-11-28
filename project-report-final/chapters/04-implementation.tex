@@ -1,0 +1,247 @@
+% ==================================================
+% CHAPTER 4: IMPLEMENTATION
+% ==================================================
+
+\chapter{Implementation}
+\label{ch:implementation}
+
+\section{Code Base}
+
+The backend is a Python package, \texttt{hostelswap}, installed from
+\texttt{code/} with \texttt{pyproject.toml}. Table~\ref{tab:modules}
+lists its modules.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{>{\ttfamily\raggedright\arraybackslash}p{0.28\textwidth} r L}
+\toprule
+\textrm{\textbf{Module}} & \textbf{Lines} & \textbf{Responsibility} \\
+\midrule
+domain/models.py, preferences.py & 89 & Rooms, slots, allocations; criteria and weighted hard/soft preferences \\
+domain/pool.py & 66 & The closed pool of students, rooms and slots in one round \\
+domain/scoring.py & 65 & How well a room meets a student's preferences \\
+domain/matrix.py & 70 & Students-by-slots cost matrix \\
+domain/solver.py & 73 & Hungarian assignment (SciPy) \\
+domain/kbest.py & 65 & Murty's $k$ best assignments \\
+domain/cycles.py & 53 & Splitting an assignment into swap chains \\
+domain/feasibility.py & 45 & Pareto filter: nobody worse off, someone better off \\
+domain/ranking.py & 238 & Options that differ in kind; chains offered per student; chain cap \\
+domain/pipeline.py & 33 & Full run: pool in, options or chains out \\
+domain/proposal.py & 127 & Approval state machine \\
+synth/generator.py & 199 & Seeded synthetic cohorts for tests and benchmarks \\
+rounds.py & 238 & Round workflow: enrol, prioritise, lock and run, offer, respond, expire \\
+db.py & 1193 & All SQL, connection pool, settings \\
+auth.py & 95 & Password hashing and session cookies \\
+api.py & 613 & FastAPI routes and role checks \\
+demo\_data.py & 155 & Fixed 30-student demo cohort \\
+\bottomrule
+\end{tabularx}
+\caption{Backend modules}
+\label{tab:modules}
+\end{table}
+
+Around the package sit \texttt{db/} (migrations, the migration runner and
+seed scripts), \texttt{frontend/} (the React application),
+\texttt{tests/} (152 tests), \texttt{benchmarks/} and \texttt{docs/}
+(the documentation site and journals).
+
+\section{Matching Engine}
+
+Figure~\ref{fig:pipeline} shows the matching pipeline. Every stage is a
+pure function of the previous stage's output.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[stepbox] (s1) {Pool: students, slots, preferences};
+  \node[stepbox, below=of s1] (s2) {Cost matrix (scores, $\infty$ if infeasible)};
+  \node[stepbox, below=of s2] (s3) {Hungarian: best assignment};
+  \node[stepbox, below=of s3] (s4) {Murty: next $K-1$ assignments};
+  \node[stepbox, below=of s4] (s5) {Cycle decomposition: chains};
+  \node[stepbox, below=of s5] (s6) {Pareto filter, chain cap};
+  \node[stepbox, below=of s6] (s7) {Up to 3 chains per student};
+  \foreach \a/\b in {s1/s2,s2/s3,s3/s4,s4/s5,s5/s6,s6/s7} \draw[flow] (\a) -- (\b);
+\end{tikzpicture}
+\caption{Matching pipeline}
+\label{fig:pipeline}
+\end{figure}
+
+\subsection{Preferences and Scoring}
+
+A preference names a criterion (room, hostel, floor, direction,
+washroom, room type or roommate), a value, a weight and whether it is
+hard. The score of a room for a student is the share of their soft
+preference weight that the room meets:
+\[
+  \mathrm{score}(s, r) = \frac{\sum_{p \in \mathrm{soft}(s),\ p \text{ met by } r} w_p}
+                              {\sum_{p \in \mathrm{soft}(s)} w_p}
+\]
+An unmet \emph{hard} preference does not lower the score: it makes the
+room infeasible for that student. A student with no soft preferences is
+content anywhere (score 1). The score keeps the lists of met and unmet
+preferences, so every option can explain itself in the interface
+(``floor 3: met; attached washroom: missed'').
+
+\subsection{Cost Matrix and the Hungarian Algorithm}
+
+Rows are students and columns are bed slots. Each cell is the negated
+score, because the solver minimises, or $\infty$ if a hard preference is
+unmet. A tiny inertia term ($10^{-9}$) is added to every slot other than
+the student's own. Without it, the solver would happily move a student
+to the other bed of the same room, which changes nothing for them and
+shows up as a meaningless swap.
+
+The matrix is solved with
+\texttt{scipy.optimize.linear\_sum\_assignment}, an implementation of
+the Hungarian method \cite{kuhn1955hungarian,munkres1957}, in $O(n^3)$.
+If hard preferences cannot all be met at once, the solver reports that
+no feasible assignment exists.
+
+\subsection{Murty's Algorithm}
+
+The best assignment is often not the best answer. It may demote one
+student to help several, which the Pareto filter then rejects, or it may
+need one enormous chain. Murty's algorithm \cite{murty1968ranking}
+enumerates the next best assignments. Any assignment other than the best
+must exclude at least one of the best one's edges, so for each edge in
+turn the algorithm forbids it, requires the edges before it, and
+re-solves. These subproblems are disjoint and together cover every
+other assignment, so nothing repeats and nothing is missed. A priority
+queue returns the assignments cheapest first. A live round uses
+$K = 50$.
+
+Each returned assignment creates up to $n$ subproblems, and each is a
+Hungarian solve, so $K$ results cost $O(K \cdot n \cdot n^3) = O(Kn^4)$
+in the worst case. The subproblems differ from their parent by fixed
+(``required'') edges. The first version forced a fixed edge by setting
+the rest of its row and column to $\infty$, so every subproblem was
+still a full $n \times n$ solve, and it found each student's row with
+an $O(n)$ search of a tuple. The solver now deletes the fixed rows and
+columns, so a subproblem with $r$ fixed edges is an
+$(n-r) \times (n-r)$ solve, and the row and column of each student and
+slot are looked up in dictionaries built once per matrix. The results
+are identical; Section~\ref{sec:performance} gives the speed-up.
+
+\subsection{Chains and the Pareto Filter}
+
+Because the pool is closed, each assignment is a permutation of students
+over the slots they already hold, and every permutation splits uniquely
+into disjoint cycles. Each cycle of length two or more is a swap chain:
+student 1 moves into student 2's slot, student 2 into student 3's, and
+the last into student 1's.
+
+A chain is kept only if it is a \textbf{Pareto improvement}: every
+member's score in the new slot is at least their score in the current
+one, and at least one member's is strictly higher. The check runs after
+the solve, not inside it, because the solver maximises the total, which
+can legitimately mean demoting one student to help several. Such a
+chain would only be rejected at the approval step, so it is never
+offered.
+
+\subsection{Options per Student}
+
+The prototype picked one plan for the whole hostel: the assignment with
+the highest cohort satisfaction. That answer hands most students
+nothing. A two-person swap in which both reach 100\% can beat a rotation
+that lifts twenty. The final engine answers a different question:
+\emph{what is the best move available to me?}
+
+\texttt{candidate\_chains} collects every distinct Pareto-improving chain
+from all $K$ assignments, drops chains longer than the cap, and keeps,
+for each student, their own three best: ordered by how well the chain
+serves that student, then by fewer members. The chains shown to
+different students may overlap and contradict each other on purpose.
+Whoever offers first takes the rooms; the unique index on live
+proposals stops a second chain from claiming the same students, and the
+other students fall back to their next option.
+
+The original whole-hostel ranking, which picks up to three options that
+\emph{differ in kind} (best overall match, fastest to execute, best
+location fit), is kept in \texttt{rank}. It awards a label only to an
+option that actually beats the others on that measure, so it may return
+fewer than three rather than a misleading label.
+
+\subsection{Chain-Length Cap}
+
+Every member of a chain has to accept before anyone moves, so a chain of
+fourteen is one offer with fourteen chances to fall through. The engine
+accepts an optional \texttt{max\_chain}; rounds use eight by default,
+and a warden can override it when locking a round. The value was chosen
+by benchmark (Section~\ref{sec:chain-cap}). A long cycle cannot be split
+into shorter ones, so the chains a cap removes are lost, not
+redistributed.
+
+\section{Round Workflow}
+
+\texttt{rounds.py} drives a round through its lifecycle and holds the
+rules about which action is allowed in which state:
+
+\begin{enumerate}
+  \item \textbf{Open}: only a \texttt{draft} round can be opened.
+  \item \textbf{Enrol and prioritise}: only while the round is
+  \texttt{open}. Priorities are saved as a new active preference set.
+  \item \textbf{Lock and run}: the round becomes \texttt{locked} and
+  then \texttt{running}; the engine runs on the round's pool; the chains
+  are stored in \texttt{round\_chain\_options}; the round becomes
+  \texttt{completed}.
+  \item \textbf{Offer}: a member of a stored chain turns it into a
+  proposal with a deadline three days ahead. Before inserting it, the
+  workflow sweeps every overdue proposal to \texttt{expired}, so a chain
+  nobody answered cannot block this one.
+  \item \textbf{Respond}: the workflow first checks the deadline. A late
+  reply marks the proposal expired and is refused with ``this proposal
+  has expired''. Otherwise the reply goes through the domain state
+  machine: a rejection settles the proposal and frees every member; the
+  last approval executes it and appends the new allocations.
+  \item \textbf{Cancel}: a warden can cancel a draft, open or completed
+  round, which withdraws its open proposals and frees their members in
+  one transaction, or withdraw a single ring. Executed swaps stay.
+\end{enumerate}
+
+The student page counts down each offer's deadline and shows an overdue
+offer as expired at once, without waiting for the server's next sweep.
+
+Mistakes by the client, such as a double click or a stale page that
+answers an already-settled proposal, raise \texttt{InvalidTransition} in
+the domain and are returned as \texttt{409 Conflict}, not as server
+errors.
+
+\section{Persistence}
+
+\texttt{db.py} uses psycopg~3 with a connection pool, so a request does
+not pay for a new TLS connection to Supabase. The student's round view
+is loaded with one query instead of one per section. Settings come from
+the environment first and then from a \texttt{.env} file at the
+repository root.
+
+The schema lives in \texttt{db/migrations/} as numbered SQL files.
+\texttt{db/migrate.py} applies every pending file in order, each in its
+own transaction, and records it in \texttt{schema\_migrations}. An
+applied file is never edited; a change is a new file. A
+\texttt{--baseline} option marks the files that created an existing
+database by hand as applied, without running them again.
+
+Two seed scripts produce realistic data: \texttt{seed\_hostels.py} loads
+four hostels and 1000 students (it refuses to clear the database without
+\texttt{--reset}), and \texttt{seed\_round.py} adds an enrolled cohort
+with priorities to the open round, skipping roll numbers that already
+exist, so it can be run again safely.
+
+\section{Web Application}
+
+The React application (\texttt{frontend/src}) has a typed API client
+(\texttt{api.ts}) and shared types (\texttt{types.ts}) that mirror the
+JSON the backend returns. The student page shows each option as a chain
+card: who moves where, the student's match percentage before and after,
+and the preferences met and missed. Offering a chain, setting priorities
+and choosing room types happen in dialogs, so the user never leaves the
+page. Roommate requests are sent by roll number and must be accepted by
+the other student before the engine uses them.
+
+\section{Documentation}
+
+The repository contains a documentation site built with Material for
+MkDocs and published to GitHub Pages by a workflow on every push to
+\texttt{main}. It holds the project overview, setup instructions and the
+weekly journals of each member, written as problem, cause and fix.

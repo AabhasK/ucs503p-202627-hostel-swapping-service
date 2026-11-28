@@ -1,0 +1,104 @@
+% ==================================================
+% APPENDICES
+% ==================================================
+
+\chapter{Engine Parameters}
+\label{app:config}
+
+Table~\ref{tab:params} lists the constants that control the engine and
+the workflow, where they are defined, and their values.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{>{\ttfamily\raggedright\arraybackslash}p{0.27\textwidth} >{\ttfamily\raggedright\arraybackslash}p{0.2\textwidth} >{\raggedright\arraybackslash}p{0.09\textwidth} L}
+\toprule
+\textrm{\textbf{Constant}} & \textrm{\textbf{Module}} & \textbf{Value} & \textbf{Meaning} \\
+\midrule
+DEFAULT\_K & domain/pipeline.py & 50 & Assignments Murty's algorithm returns \\
+MAX\_CHAIN & rounds.py & 8 & Longest chain offered (warden can override) \\
+PER\_STUDENT\_OPTIONS & rounds.py & 3 & Chains shown to each student \\
+PROPOSAL\_LIFETIME & rounds.py & 3 days & Time to collect every approval \\
+INERTIA & domain/matrix.py & $10^{-9}$ & Tie-break towards staying put \\
+EPSILON & domain/feasibility.py & $10^{-9}$ & Tolerance in the Pareto check \\
+SESSION\_LIFETIME & auth.py & 7 days & Session validity \\
+SESSION\_CACHE\_TTL & auth.py & 30\,s & Per-process session cache \\
+\_ITERATIONS & auth.py & 200\,000 & PBKDF2 iterations \\
+\bottomrule
+\end{tabularx}
+\caption{Engine and workflow parameters}
+\label{tab:params}
+\end{table}
+
+\chapter{Reproducing the Evaluation}
+\label{app:repro}
+
+The frozen-cohort figures in Table~\ref{tab:demo-k} come from the demo
+endpoint, run without a database:
+
+\begin{lstlisting}[language=bash]
+pip install -e "./code[dev]"
+uvicorn hostelswap.api:app
+curl "http://127.0.0.1:8000/api/demo?k=1"    # Hungarian only
+curl "http://127.0.0.1:8000/api/demo?k=50"   # live default
+\end{lstlisting}
+
+The chain-cap benchmark uses cohorts from
+\texttt{hostelswap.synth.generator} with seeds 1--10 and 300 students,
+$K = 200$, and applies caps of 5, 8 and 10 to the output of
+\texttt{recommend\_chains}. Its figures and charts are in
+\texttt{benchmarks/chain-cap-deck.html}.
+
+\chapter{Individual Contributions}
+\label{app:contrib}
+
+\section*{Aabhas Khandelwal (\texttt{1024030673})}
+\begin{itemize}
+  \item Set up the repository, the Python package, pytest and CI
+  (Python 3.10--3.12), and fixed CI after the package moved.
+  \item Built the domain layer: preference model, scoring, cost matrix,
+  Hungarian solver, Murty's $k$-best, cycle extraction, Pareto filter,
+  ranking and the approval state machine.
+  \item Wrote most of the test suite and the synthetic cohort generator.
+  \item Wrote the round workflow (\texttt{rounds.py}), the first web
+  prototype and the first schema.
+  \item Found and fixed the proposal-expiry and lock-out defect
+  (migration \texttt{0002}, expiry sweep, tests).
+  \item Wrote the proposal, the prototype report, the documentation and
+  journals.
+\end{itemize}
+
+\section*{Aakash Chawla (\texttt{1024031097})}
+\begin{itemize}
+  \item Gave the proposal presentation.
+  \item Integrated Supabase and wrote the data layer (\texttt{db.py}),
+  with connection pooling and query optimisation.
+  \item Implemented authentication and roles, and grew the API into the
+  full student and admin API.
+  \item Built the React and TypeScript interface, including roommate
+  requests.
+  \item Added the chain-length cap and ran the chain-cap benchmark.
+  \item Added numbered migrations, the migration runner, seed scripts
+  and the production fail-fast check.
+\end{itemize}
+
+\section*{Joy Soni (\texttt{1024030674})}
+\begin{itemize}
+  \item Built the first student and admin HTML pages, later replaced by
+  the React interface.
+  \item Secured the session cookie for production and fixed the
+  production login cookie configuration.
+\end{itemize}
+
+\chapter{Project Resources}
+\label{app:resources}
+
+\begin{itemize}
+  \item Live service: \url{https://hostelswap.aakashchawla.space/login}
+  \item Source code: \url{https://github.com/AakashChawla07/ucs503p-202627-hostel-swapping-service}
+  \item Documentation, tutorial, API reference and journals:
+  \url{https://aakashchawla07.github.io/ucs503p-202627-hostel-swapping-service/}
+  \item Proposal: \texttt{project-proposal/}; prototype report:
+  \texttt{project-report-prototype-stage/}
+  \item Chain-cap benchmark: \texttt{benchmarks/chain-cap-deck.html}
+\end{itemize}
