@@ -24,7 +24,7 @@
 \ProcessOptions\relax
 
 %% Load base report class with standard options
-\LoadClass[twoside,12pt,openany]{report}
+\LoadClass[twoside,12pt,openright]{report}
 
 %% ===================================================
 %% Geometry: Page margins and asymmetric layout
@@ -83,7 +83,6 @@
 \RequirePackage{graphicx}
 \RequirePackage{amsmath}
 \RequirePackage{amssymb}
-\RequirePackage{microtype}
 
 %% ===================================================
 %% Internal Variables: Title page content storage
@@ -214,6 +213,9 @@
     \vspace{2cm}
     {\normalsize \@tpFooter}
   \end{titlepage}
+
+  \newpage
+  \thispagestyle{empty}%
 }
 
 \endinput

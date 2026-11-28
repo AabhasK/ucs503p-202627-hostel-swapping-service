@@ -1,9 +1,0 @@
-\begin{tikzpicture}
-  \node[proc, minimum size=30mm] (sys) at (0,0) {\textbf{0}\\ Hostel Room\\ Swapping\\ Service};
-  \node[box, fill=gray!15, minimum width=24mm] (stu) at (-6,0) {Student};
-  \node[box, fill=gray!15, minimum width=24mm] (war) at (6,0) {Warden};
-  \draw[flow] ([yshift=4mm]stu.east) -- node[lbl, above, align=center] {priorities, roommate\\ requests, offers, replies} ([yshift=4mm]sys.west);
-  \draw[flow] ([yshift=-4mm]sys.west) -- node[lbl, below, align=center] {swap options,\\ proposal status} ([yshift=-4mm]stu.east);
-  \draw[flow] ([yshift=4mm]war.west) -- node[lbl, above, align=center] {room types,\\ round commands} ([yshift=4mm]sys.east);
-  \draw[flow] ([yshift=-4mm]sys.east) -- node[lbl, below, align=center] {round summary,\\ proposals} ([yshift=-4mm]war.west);
-\end{tikzpicture}
