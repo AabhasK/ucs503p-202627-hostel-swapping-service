@@ -1112,21 +1112,37 @@ def update_proposal(
         conn.commit()
 
 
-def expire_due_proposals(connection_string: str) -> None:
-    """Expire every proposal still collecting approvals past its deadline,
-    and free its members for other chains."""
-    with _pool(connection_string).connection() as conn, conn.cursor() as cur:
-        cur.execute(
-            """
-            with expired as (
-                update swap_proposals set status = 'expired', settled_at = now()
-                where status = 'proposed' and expires_at < now()
-                returning id
-            )
-            update swap_chain_members set settled = true
-            where proposal_id in (select id from expired)
-            """
+def _settle_open_proposals(cur, status: str, condition: str, params: tuple = ()) -> None:
+    """Move every proposal still collecting approvals that matches
+    `condition` to `status`, and free its members for other chains."""
+    cur.execute(
+        f"""
+        with settled as (
+            update swap_proposals set status = %s, settled_at = now()
+            where status = 'proposed' and {condition}
+            returning id
         )
+        update swap_chain_members set settled = true
+        where proposal_id in (select id from settled)
+        """,
+        (status, *params),
+    )
+
+
+def expire_due_proposals(connection_string: str) -> None:
+    """Expire every proposal past its deadline."""
+    with _pool(connection_string).connection() as conn, conn.cursor() as cur:
+        _settle_open_proposals(cur, "expired", "expires_at < now()")
+        conn.commit()
+
+
+def cancel_round(connection_string: str, round_id: str) -> None:
+    """Cancel a round and every proposal in it still collecting approvals,
+    in one transaction. Swaps already executed stay: allocations are
+    append-only."""
+    with _pool(connection_string).connection() as conn, conn.cursor() as cur:
+        cur.execute("update swap_rounds set status = 'cancelled' where id = %s", (round_id,))
+        _settle_open_proposals(cur, "cancelled", "round_id = %s", (round_id,))
         conn.commit()
 
 

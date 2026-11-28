@@ -89,6 +89,21 @@ export function Admin({ me, onLogout }: Props) {
 
   const createRound = () => guard(() => api.admin.createRound(hostelId));
   const openRound = () => guard(() => api.admin.openRound(round!.id));
+  const cancelRound = () => {
+    if (window.confirm("Cancel this round? Open offers are withdrawn; executed swaps stay.")) {
+      void guard(() => api.admin.cancelRound(round!.id));
+    }
+  };
+  const cancelProposal = (id: string) => {
+    if (window.confirm("Withdraw this ring? Its students become free to join other rings.")) {
+      void guard(() => api.admin.cancelProposal(id));
+    }
+  };
+  const cancelButton = (
+    <button className="btn btn-secondary" type="button" disabled={busy} onClick={cancelRound}>
+      Cancel round
+    </button>
+  );
   const startNewRound = () =>
     guard(async () => {
       const roundId = await api.admin.createRound(hostelId);
@@ -168,7 +183,8 @@ export function Admin({ me, onLogout }: Props) {
               </p>
               <button className="btn btn-primary" type="button" disabled={busy} onClick={openRound}>
                 Open registration
-              </button>
+              </button>{" "}
+              {cancelButton}
             </>
           ) : round.status === "open" ? (
             <>
@@ -178,7 +194,8 @@ export function Admin({ me, onLogout }: Props) {
               </p>
               <button className="btn btn-primary" type="button" disabled={busy} onClick={() => setRunning(true)}>
                 Lock and run matching
-              </button>
+              </button>{" "}
+              {cancelButton}
             </>
           ) : round.status === "completed" ? (
             <>
@@ -187,7 +204,8 @@ export function Admin({ me, onLogout }: Props) {
               </p>
               <button className="btn btn-secondary" type="button" disabled={busy} onClick={startNewRound}>
                 Open a new round
-              </button>
+              </button>{" "}
+              {cancelButton}
               <p className="muted" style={{ marginBottom: 0 }}>
                 A new round leaves this one alone — offers here stay open for students to settle.
               </p>
@@ -270,6 +288,17 @@ export function Admin({ me, onLogout }: Props) {
                           <>
                             <Pill status={p.status} />{" "}
                             <span className="muted">{p.members.length} students</span>
+                            {p.status === "proposed" ? (
+                              <>
+                                {" "}
+                                <button
+                                  className="btn btn-secondary btn-sm" type="button" disabled={busy}
+                                  onClick={() => cancelProposal(p.id)}
+                                >
+                                  Withdraw
+                                </button>
+                              </>
+                            ) : null}
                           </>
                         ) : null}
                       </td>

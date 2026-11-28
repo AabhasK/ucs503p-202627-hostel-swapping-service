@@ -58,3 +58,41 @@ def test_offering_a_chain_first_expires_overdue_proposals(monkeypatch):
 
     assert rounds.offer_chain("dsn", "r1", "a", "recommended", 1) == "p2"
     assert order == ["sweep", "insert"]
+
+
+def test_cancelling_an_open_proposal_frees_its_members(monkeypatch, updates):
+    future = datetime.now(timezone.utc) + timedelta(days=1)
+    monkeypatch.setattr(rounds.db, "fetch_proposal", lambda dsn, pid: _proposal(future))
+
+    rounds.cancel_proposal("dsn", "p1")
+
+    assert updates == [("p1", "cancelled", True)]
+
+
+def test_a_settled_proposal_cannot_be_cancelled(monkeypatch, updates):
+    rejected = {**_proposal(datetime.now(timezone.utc)), "status": "rejected"}
+    monkeypatch.setattr(rounds.db, "fetch_proposal", lambda dsn, pid: rejected)
+
+    with pytest.raises(rounds.InvalidRoundState, match="rejected"):
+        rounds.cancel_proposal("dsn", "p1")
+    assert updates == []
+
+
+@pytest.mark.parametrize("status", ["draft", "open", "completed"])
+def test_a_round_can_be_cancelled_before_or_after_matching(monkeypatch, status):
+    cancelled = []
+    monkeypatch.setattr(rounds, "_require_round", lambda dsn, rid: {"status": status})
+    monkeypatch.setattr(rounds.db, "cancel_round", lambda dsn, rid: cancelled.append(rid))
+
+    rounds.cancel_round("dsn", "r1")
+
+    assert cancelled == ["r1"]
+
+
+@pytest.mark.parametrize("status", ["running", "cancelled"])
+def test_a_running_or_cancelled_round_cannot_be_cancelled(monkeypatch, status):
+    monkeypatch.setattr(rounds, "_require_round", lambda dsn, rid: {"status": status})
+    monkeypatch.setattr(rounds.db, "cancel_round", lambda dsn, rid: pytest.fail("should not cancel"))
+
+    with pytest.raises(rounds.InvalidRoundState, match=status):
+        rounds.cancel_round("dsn", "r1")

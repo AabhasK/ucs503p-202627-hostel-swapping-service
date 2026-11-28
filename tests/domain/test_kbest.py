@@ -99,3 +99,20 @@ def test_infeasible_raises():
 
     with pytest.raises(NoFeasibleAssignment):
         k_best(build_matrix(pool), 3)
+
+
+def test_matches_brute_force_on_a_generated_pool():
+    from itertools import permutations
+
+    from hostelswap.synth.generator import generate_pool
+
+    matrix = build_matrix(generate_pool(6, seed=3))
+    n = len(matrix.student_ids)
+    every = sorted(
+        sum(matrix.costs[r, c] for r, c in enumerate(perm))
+        for perm in permutations(range(n))
+    )
+
+    found = [a.cost for a in k_best(matrix, 20)]
+
+    assert found == pytest.approx(every[:20])

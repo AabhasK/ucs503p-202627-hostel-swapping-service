@@ -11,6 +11,19 @@ import type {
 
 const LIVE = new Set(["proposed", "approved", "executing"]);
 
+/** The status to show: a ring still collecting replies past its deadline
+ * is expired even before the server's next sweep marks it so. */
+function shownStatus(p: Proposal, now: number): string {
+  return p.status === "proposed" && Date.parse(p.expiresAt) <= now ? "expired" : p.status;
+}
+
+/** "2 d 4 h", "3 h 20 min" or "12 min" until `iso`. */
+function timeLeft(iso: string, now: number): string {
+  const minutes = Math.max(1, Math.ceil((Date.parse(iso) - now) / 60_000));
+  const d = Math.floor(minutes / 1440), h = Math.floor((minutes % 1440) / 60), m = minutes % 60;
+  return d ? `${d} d ${h} h` : h ? `${h} h ${m} min` : `${m} min`;
+}
+
 const CRITERION_LABEL: Record<string, string> = {
   floor: "Floor",
   direction: "Side",
@@ -41,6 +54,13 @@ export function Student({ me, onLogout }: Props) {
   const [showPreferences, setShowPreferences] = useState(false);
   const [offering, setOffering] = useState<ChainOption | null>(null);
   const [busyProposal, setBusyProposal] = useState<string | null>(null);
+  const [now, setNow] = useState(Date.now());
+
+  // Re-render each minute so deadlines count down and lapse on screen.
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const load = useCallback(async () => {
     setError("");
@@ -84,7 +104,7 @@ export function Student({ me, onLogout }: Props) {
     void load();
   }, [load]);
 
-  const liveProposal = proposals.some((p) => LIVE.has(p.status));
+  const liveProposal = proposals.some((p) => LIVE.has(shownStatus(p, now)));
 
   async function toggleEnrolment() {
     if (!round) return;
@@ -272,12 +292,16 @@ export function Student({ me, onLogout }: Props) {
         ) : (
           proposals.map((p) => {
             const mine = p.members.find((m) => m.rollNo === me.rollNo);
-            const canRespond = p.status === "proposed" && mine?.approval === "pending";
+            const status = shownStatus(p, now);
+            const canRespond = status === "proposed" && mine?.approval === "pending";
             return (
               <article className="chain" key={p.id}>
                 <div className="chain-head">
                   <span className="title">Ring of {p.members.length}</span>
-                  <Pill status={p.status} />
+                  <Pill status={status} />
+                  {status === "proposed" ? (
+                    <span className="muted">closes in {timeLeft(p.expiresAt, now)}</span>
+                  ) : null}
                 </div>
                 <div className="steps">
                   {p.members.map((m) => (
@@ -308,9 +332,11 @@ export function Student({ me, onLogout }: Props) {
                   </div>
                 ) : (
                   <p className="muted" style={{ margin: 0 }}>
-                    {p.status === "proposed"
+                    {status === "proposed"
                       ? "Waiting on the others to answer."
-                      : `This ring is ${p.status}.`}
+                      : status === "expired"
+                        ? "Not everyone answered in time, so this ring expired. You are free to join another."
+                        : `This ring is ${status}.`}
                   </p>
                 )}
               </article>
