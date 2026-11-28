@@ -565,15 +565,31 @@ def admin_create_round(body: CreateRoundBody, user: CurrentUser = Depends(requir
     return {"roundId": round_id}
 
 
-@app.post("/api/admin/rounds/{round_id}/open")
-def admin_open_round(round_id: str, user: CurrentUser = Depends(require_admin)):
-    connection = _connection()
+def _guard(action):
+    """Run a workflow action: a wrong state is 409, a missing row 404."""
     try:
-        rounds.open_round(connection, round_id)
+        return action()
     except rounds.InvalidRoundState as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/api/admin/rounds/{round_id}/open")
+def admin_open_round(round_id: str, user: CurrentUser = Depends(require_admin)):
+    _guard(lambda: rounds.open_round(_connection(), round_id))
+    return {"ok": True}
+
+
+@app.post("/api/admin/rounds/{round_id}/cancel")
+def admin_cancel_round(round_id: str, user: CurrentUser = Depends(require_admin)):
+    _guard(lambda: rounds.cancel_round(_connection(), round_id))
+    return {"ok": True}
+
+
+@app.post("/api/admin/proposals/{proposal_id}/cancel")
+def admin_cancel_proposal(proposal_id: str, user: CurrentUser = Depends(require_admin)):
+    _guard(lambda: rounds.cancel_proposal(_connection(), proposal_id))
     return {"ok": True}
 
 
@@ -588,15 +604,9 @@ def admin_lock_and_run(
     omit it to use the round default. Validated here rather than letting
     the domain's ValueError through, which this endpoint reports as a
     missing round."""
-    connection = _connection()
     if max_chain is not None and max_chain < 2:
         raise HTTPException(status_code=400, detail="max_chain must be at least 2")
-    try:
-        return rounds.lock_and_run(connection, round_id, k, max_chain)
-    except rounds.InvalidRoundState as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return _guard(lambda: rounds.lock_and_run(_connection(), round_id, k, max_chain))
 
 
 @app.get("/api/admin/rounds/{round_id}/summary")

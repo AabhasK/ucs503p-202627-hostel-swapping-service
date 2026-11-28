@@ -12,6 +12,7 @@ from statistics import fmean
 from . import db
 from .domain.pipeline import recommend_chains
 from .domain.proposal import InvalidTransition, Move, Proposal, ProposalStatus, Response
+from .domain.proposal import cancel as domain_cancel
 from .domain.proposal import execute as domain_execute
 from .domain.proposal import expire_if_due
 from .domain.proposal import respond as domain_respond
@@ -183,21 +184,44 @@ def offer_chain(
     )
 
 
-def respond(connection_string: str, proposal_id: str, student_roll_no: str, accept: bool) -> dict:
-    now = datetime.now(timezone.utc)
+def _load_proposal(connection_string: str, proposal_id: str) -> tuple[Proposal, dict]:
+    """The stored proposal as a domain object, plus roll number -> student id."""
     data = db.fetch_proposal(connection_string, proposal_id)
     if data is None:
         raise ValueError(f"no such proposal: {proposal_id}")
-
-    roll_uuid = {m["rollNo"]: m["studentId"] for m in data["members"]}
     moves = tuple(
         Move(m["rollNo"], m["fromSlotId"], m["toSlotId"], Response(m["approval"]))
         for m in data["members"]
     )
-    current = Proposal(
+    proposal = Proposal(
         id=data["id"], moves=moves, status=ProposalStatus(data["status"]),
         expires_at=data["expiresAt"], settled_at=data["settledAt"],
     )
+    return proposal, {m["rollNo"]: m["studentId"] for m in data["members"]}
+
+
+def cancel_round(connection_string: str, round_id: str) -> None:
+    """A warden withdraws a round. Its open proposals are cancelled and
+    their members freed; swaps already executed are not undone."""
+    status = _require_round(connection_string, round_id)["status"]
+    if status not in ("draft", "open", "completed"):
+        raise InvalidRoundState(f"cannot cancel a {status} round")
+    db.cancel_round(connection_string, round_id)
+
+
+def cancel_proposal(connection_string: str, proposal_id: str) -> None:
+    """A warden withdraws one chain still collecting approvals."""
+    current, _ = _load_proposal(connection_string, proposal_id)
+    try:
+        domain_cancel(current)
+    except InvalidTransition as exc:
+        raise InvalidRoundState(str(exc)) from exc
+    db.update_proposal(connection_string, proposal_id, "cancelled", {}, settled=True)
+
+
+def respond(connection_string: str, proposal_id: str, student_roll_no: str, accept: bool) -> dict:
+    now = datetime.now(timezone.utc)
+    current, roll_uuid = _load_proposal(connection_string, proposal_id)
     if expire_if_due(current, now).status is ProposalStatus.EXPIRED:
         db.update_proposal(connection_string, proposal_id, "expired", {}, settled=True)
         raise InvalidRoundState("this proposal has expired")

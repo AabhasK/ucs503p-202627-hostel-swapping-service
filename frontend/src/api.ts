@@ -115,6 +115,9 @@ export const api = {
     createRound: (hostelId: string) =>
       post<{ roundId: string }>("/api/admin/rounds", { hostelId }).then((d) => d.roundId),
     openRound: (roundId: string) => post<{ ok: boolean }>(`/api/admin/rounds/${roundId}/open`),
+    cancelRound: (roundId: string) => post<{ ok: boolean }>(`/api/admin/rounds/${roundId}/cancel`),
+    cancelProposal: (proposalId: string) =>
+      post<{ ok: boolean }>(`/api/admin/proposals/${proposalId}/cancel`),
     lockAndRun: (roundId: string, k: number, maxChain: number | null) => {
       const q = new URLSearchParams({ k: String(k) });
       if (maxChain !== null) q.set("max_chain", String(maxChain));
