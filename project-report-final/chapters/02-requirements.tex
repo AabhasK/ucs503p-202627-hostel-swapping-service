@@ -79,7 +79,7 @@ FR-04 & A student enrols in an open round, or withdraws. & Done \\
 FR-05 & A student sets weighted priorities over room, hostel, floor, direction, washroom type, room type and roommate, each marked hard or soft. & Done \\
 FR-06 & A student requests a roommate; the request counts only once the other student accepts it. & Done \\
 FR-07 & A warden locks a round, which closes registration and runs the matching engine in one action, with an optional chain-length cap. & Done \\
-FR-08 & Each student sees up to three swap chains that include them, with the match percentage and the preferences each one meets and misses. & Done \\
+FR-08 & Each student sees up to three swap chains that include them, best for them first, with each member's move and match percentage. & Done \\
 FR-09 & No offered chain leaves any member worse off than their current room. & Done \\
 FR-10 & A member offers a chain; every member must approve it before any room changes; one rejection cancels the chain. & Done \\
 FR-11 & A proposal not approved within three days expires; replies after the deadline are refused. & Done \\
@@ -108,7 +108,7 @@ Performance & A round runs in seconds, a page loads quickly & 30 students: about
 Executability & Offered chains should be short enough to be approved & Chain cap of eight; Murty alternatives prefer shorter chains \\
 Maintainability & Changes are safe and reviewable & Pure domain layer, 154 tests, CI on three Python versions, numbered migrations \\
 Portability & Runs without a database for demos and tests & Demo cohort fallback; refused in production \\
-Usability & Clear options, not raw numbers & Match percentage with met and missed preferences per option \\
+Usability & Clear options, not raw numbers & Each option shows every member's move and match percentage \\
 \bottomrule
 \end{tabularx}
 \caption{Non-functional requirements}

@@ -231,8 +231,9 @@ exist, so it can be run again safely.
 The React application (\texttt{frontend/src}) has a typed API client
 (\texttt{api.ts}) and shared types (\texttt{types.ts}) that mirror the
 JSON the backend returns. The student page shows each option as a chain
-card: who moves where, the student's match percentage before and after,
-and the preferences met and missed. Offering a chain, setting priorities
+card: who moves where and each member's match percentage. The engine
+keeps the preferences each room meets and misses, and the demo endpoint
+returns them. Offering a chain, setting priorities
 and choosing room types happen in dialogs, so the user never leaves the
 page. Roommate requests are sent by roll number and must be accepted by
 the other student before the engine uses them.
