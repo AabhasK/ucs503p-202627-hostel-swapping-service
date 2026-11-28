@@ -43,7 +43,7 @@ demo\_data.py & 155 & Fixed 30-student demo cohort \\
 
 Around the package sit \texttt{db/} (migrations, the migration runner and
 seed scripts), \texttt{frontend/} (the React application),
-\texttt{tests/} (152 tests), \texttt{benchmarks/} and \texttt{docs/}
+\texttt{tests/} (154 tests), \texttt{benchmarks/} and \texttt{docs/}
 (the documentation site and journals).
 
 \section{Matching Engine}
@@ -114,14 +114,12 @@ $K = 50$.
 Each returned assignment creates up to $n$ subproblems, and each is a
 Hungarian solve, so $K$ results cost $O(K \cdot n \cdot n^3) = O(Kn^4)$
 in the worst case. The subproblems differ from their parent by fixed
-(``required'') edges. The first version forced a fixed edge by setting
-the rest of its row and column to $\infty$, so every subproblem was
-still a full $n \times n$ solve, and it found each student's row with
-an $O(n)$ search of a tuple. The solver now deletes the fixed rows and
-columns, so a subproblem with $r$ fixed edges is an
-$(n-r) \times (n-r)$ solve, and the row and column of each student and
-slot are looked up in dictionaries built once per matrix. The results
-are identical; Section~\ref{sec:performance} gives the speed-up.
+(``required'') edges, forced by setting the rest of their row and
+column to $\infty$, so every subproblem is a full $n \times n$ solve.
+Each student's row and slot's column are looked up in dictionaries
+built once per matrix, rather than by an $O(n)$ search of a tuple.
+Deleting the fixed rows and columns instead was tried and rejected
+(Section~\ref{sec:performance}).
 
 \subsection{Chains and the Pareto Filter}
 

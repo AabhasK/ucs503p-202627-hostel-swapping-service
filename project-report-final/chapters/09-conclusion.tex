@@ -39,10 +39,10 @@ a React interface for students and wardens.
   members, enforced both in code and by a database index.
   \item \textbf{An auditable record}: allocation history that no client
   can rewrite.
-  \item \textbf{A faster search}: Murty's subproblems now shrink as
-  edges are fixed, making the search 4--13 times faster with identical
-  results.
-  \item \textbf{Engineering discipline}: a framework-free domain, 152
+  \item \textbf{A regression caught}: a 13-times-faster search that
+  silently offered 3--10 times fewer chains was found by reproducing the
+  benchmark with a script, explained (tied optima) and reverted.
+  \item \textbf{Engineering discipline}: a framework-free domain, 154
   automated tests run in CI on three Python versions, numbered
   migrations, and weekly journals of problems, causes and fixes.
 \end{enumerate}
@@ -57,8 +57,7 @@ a React interface for students and wardens.
   are lost, not delayed.
   \item The live search budget ($K = 50$) is smaller than the one
   benchmarked ($K = 200$), so live reach on large cohorts is lower than
-  the benchmark figures. The faster search makes a larger $K$
-  affordable, but the live default has not been raised yet.
+  the benchmark figures.
   \item Shared rooms and roommate requests are supported and unit-tested
   but not part of the evaluation cohorts.
   \item The login endpoint has no rate limit.
@@ -71,8 +70,9 @@ a React interface for students and wardens.
 \begin{enumerate}
   \item Run a pilot round with real registrations for one hostel.
   \item Rate-limit login attempts.
-  \item Raise the live $K$ now that the search is faster, after
-  measuring how reach on large cohorts grows with it.
+  \item Break ties between equally good assignments deliberately, so
+  that Murty's search visits more varied ones and reaches more students
+  without a larger $K$.
   \item Warm-start Murty's subproblems from the parent's dual
   potentials, bringing the search towards $O(Kn^3)$.
   \item Notify students by email when a chain that includes them is

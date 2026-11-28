@@ -50,9 +50,9 @@ scenarios/test\_golden\_scenarios.py & 9 & Three-way cycle where no pair works; 
 test\_db.py & 14 & Settings from environment and \texttt{.env}; stored values typed back; production fail-fast \\
 test\_api.py & 13 & Demo run: satisfaction rises, nobody worse off, chains close; cookie \texttt{Secure} only in production \\
 test\_rounds.py & 10 & Late accept refused; expiry sweep before insert; cancelling rounds and rings \\
-test\_db\_live.py & 4 & Against PostgreSQL: one live ring per student; expiry, execution and round cancellation free members \\
+test\_db\_live.py & 6 & Against PostgreSQL: one live ring per student; expiry, execution and round cancellation free members; the results page frees them too \\
 \midrule
-\textbf{Total} & \textbf{152} & \\
+\textbf{Total} & \textbf{154} & \\
 \bottomrule
 \end{tabularx}
 \caption{Automated tests}
@@ -92,6 +92,8 @@ Setup steps in the README failed on a fresh clone & Fresh clone & Steps changed 
 Login failed in production because of cookie settings & Production use & \texttt{Secure} cookie only in production \\
 The solver swapped students between beds of the same room & Engine output & Inertia term in the cost matrix, with a test \\
 Proposals never expired; members of settled chains were locked out & Code review & Expiry check, sweep, migration \texttt{0002} (below) \\
+The results page still showed members of expired rings as taken & Review of claims & Same settled rule as the index, with two database tests \\
+A faster solver offered 3--10$\times$ fewer chains, at identical costs & Reproducing the benchmark & Reverted (Section~\ref{sec:tie-breaking}) \\
 \bottomrule
 \caption{Defects found and fixed}
 \label{tab:defects}
