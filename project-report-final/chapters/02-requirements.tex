@@ -106,7 +106,7 @@ Integrity & Allocation history cannot be rewritten; one live proposal per studen
 Security & Only authenticated users of the right role reach each endpoint & Salted PBKDF2 passwords, httpOnly session cookies, role checks on every route \\
 Performance & A round runs in seconds, a page loads quickly & 30 students: about 0.15\,s per run; session cache; one query per round view \\
 Executability & Offered chains should be short enough to be approved & Chain cap of eight; Murty alternatives prefer shorter chains \\
-Maintainability & Changes are safe and reviewable & Pure domain layer, 152 tests, CI on three Python versions, numbered migrations \\
+Maintainability & Changes are safe and reviewable & Pure domain layer, 154 tests, CI on three Python versions, numbered migrations \\
 Portability & Runs without a database for demos and tests & Demo cohort fallback; refused in production \\
 Usability & Clear options, not raw numbers & Match percentage with met and missed preferences per option \\
 \bottomrule

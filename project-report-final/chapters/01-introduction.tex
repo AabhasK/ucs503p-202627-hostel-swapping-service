@@ -105,10 +105,10 @@ Roommates & Scored, not requestable & Mutual roommate requests, sent and accepte
 Web interface & Server-rendered HTML and JavaScript & React + TypeScript single-page app built with Vite \\
 Schema & One \texttt{schema.sql} & Numbered migrations with a runner, plus seed scripts \\
 Production checks & None & Secure cookies, refuses to start without a database \\
-Murty's search & Full-size subproblems & Subproblems shrink as edges are fixed: 4--13$\times$ faster \\
+Murty's search & $O(n)$ index lookups & $O(1)$ lookups: 1.4$\times$ faster, identical results \\
 Warden controls & Create, open, run & Also cancel a round and withdraw a ring \\
 Deadlines & Not shown & Countdown per offer; overdue offers shown as expired \\
-Tests & 127 & 152, four against PostgreSQL in CI \\
+Tests & 127 & 154, six against PostgreSQL in CI \\
 Evaluation & One 30-student cohort & Plus ten seeded 300-student cohorts per chain cap, and a scale study \\
 \bottomrule
 \end{tabularx}

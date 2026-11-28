@@ -115,3 +115,31 @@ def test_cancelling_a_round_frees_its_members(cohort):
     assert status_of(pending) == "cancelled"
     assert db.fetch_round(DSN, round_id)["status"] == "cancelled"
     offer(cohort, "ac")
+
+
+def committed(cohort):
+    """Roll number -> whether the results page shows that student as taken."""
+    round_id, students = cohort
+    db.insert_chain_options(DSN, round_id, [
+        {"kind": "recommended", "chain_no": 1, "student_id": students[r][0],
+         "from_slot_id": students[r][1], "to_slot_id": students[r][1], "match_value": 0.5}
+        for r in "abc"
+    ])
+    members = db.fetch_round_results(DSN, round_id)["options"][0]["members"]
+    return {m["rollNo"]: m["committed"] for m in members}
+
+
+def test_the_results_page_frees_members_of_an_expired_ring(cohort):
+    offer(cohort, "ab", expires_at=PAST)
+    db.expire_due_proposals(DSN)
+
+    assert committed(cohort) == {"a": False, "b": False, "c": False}
+
+
+def test_the_results_page_holds_members_of_live_and_executed_rings(cohort):
+    _, students = cohort
+    offer(cohort, "ab")
+    done = offer(cohort, "c")
+    db.update_proposal(DSN, done, "executed", {students["c"][0]: "approved"}, settled=True)
+
+    assert committed(cohort) == {"a": True, "b": True, "c": True}

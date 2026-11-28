@@ -120,8 +120,10 @@ cohorts, which the next study measures.
   \item \textbf{Search}: Hungarian plus Murty with $K = 200$, run once
   per cohort and shared by all caps.
   \item \textbf{Caps}: 5, 8 and 10 students per chain.
-  \item \textbf{Cost}: 51--68\,s of search per cohort; the whole study ran
-  in 9.5 minutes, in memory.
+  \item \textbf{Served}: rings taken greedily, best mean match first,
+  skipping any that shares a student with one already taken.
+  \item \textbf{Reproduction}: \texttt{python benchmarks/chain\_cap.py};
+  42--52\,s of search per cohort, about 8 minutes in all.
 \end{itemize}
 
 \subsection{Results}
@@ -132,12 +134,12 @@ cohorts, which the next study measures.
 \toprule
 \textbf{Cap} & \textbf{Offered \%} & \textbf{Served \%} & \textbf{Satisfaction \%} & \textbf{Chains} & \textbf{Mean length} \\
 \midrule
-5  & $28.0 \pm 7.2$ & $23.5 \pm 5.6$ & $47.7 \pm 3.3$ & $28.0 \pm 7.2$  & $3.6 \pm 0.1$ \\
-8  & $57.8 \pm 8.8$ & $42.7 \pm 6.2$ & $58.9 \pm 4.0$ & $53.0 \pm 12.0$ & $5.2 \pm 0.2$ \\
-10 & $71.9 \pm 9.0$ & $46.5 \pm 7.0$ & $61.0 \pm 4.1$ & $68.1 \pm 14.2$ & $6.2 \pm 0.2$ \\
+5  & $28.0 \pm 7.2$ & $22.4 \pm 5.1$ & $47.2 \pm 3.2$ & $28.0 \pm 7.2$  & $3.6 \pm 0.1$ \\
+8  & $57.8 \pm 8.8$ & $39.1 \pm 4.9$ & $57.0 \pm 3.3$ & $53.0 \pm 12.0$ & $5.2 \pm 0.2$ \\
+10 & $71.9 \pm 9.0$ & $44.1 \pm 5.8$ & $60.1 \pm 3.8$ & $68.1 \pm 14.2$ & $6.2 \pm 0.2$ \\
 \bottomrule
 \end{tabular}
-\caption{Chain-cap benchmark: mean $\pm$ standard deviation over ten 300-student cohorts ($K = 200$)}
+\caption{Chain-cap benchmark: mean $\pm$ population standard deviation over ten 300-student cohorts ($K = 200$)}
 \label{tab:cap}
 \end{table}
 
@@ -148,9 +150,9 @@ cohorts, which the next study measures.
   cap 10 still beats the best cohort at cap 5 by 10 points. Within one
   cap, cohorts differ by up to 24 points, which is why ten runs were
   needed rather than one.
-  \item \emph{Served} barely moves from cap 8 (42.7\%) to cap 10
-  (46.5\%). Long chains compete for the same rooms, so the extra reach
-  of cap 10 buys choice more than throughput.
+  \item \emph{Served} moves far less than \emph{offered} from cap 8
+  (39.1\%) to cap 10 (44.1\%). Long chains compete for the same rooms,
+  so the extra reach of cap 10 buys choice more than throughput.
 \end{itemize}
 
 \subsection{Why the Cohort Must Be Large}
@@ -192,17 +194,17 @@ demonstration cohort would have hidden the effect entirely.
 \subsection{Decision}
 
 \textbf{Cap 8 is the operating point.} It reaches 58\% of the cohort and
-raises satisfaction to 58.9\%. Cap 10 adds 14 points of reach for two
-points of satisfaction, at the price of two more people per chain who
-all have to agree, and it serves only four points more students at once.
+raises satisfaction from 34.4\% to 57.0\%. Cap 10 adds 14 points of
+reach for three points of satisfaction, at the price of one more person
+per chain on average who has to agree, and it serves only five points
+more students at once.
 The cap was then built into the engine (\texttt{max\_chain}) with eight as
 the default, and a warden can change it per run.
 
 One caveat: the benchmark used $K = 200$, while a live round uses
 $K = 50$ to keep a run fast. On large cohorts the smaller search finds
 fewer chains, so live figures will be below those in
-Table~\ref{tab:cap}. The faster search in
-Section~\ref{sec:performance} makes a larger live $K$ affordable.
+Table~\ref{tab:cap}.
 
 \section{Performance}
 \label{sec:performance}
@@ -223,36 +225,54 @@ subproblems each, every one an $O(n^3)$ solve, gives $O(Kn^4)$ in the
 worst case. For $n = 300$ and $K = 200$ that is tens of thousands of
 solves, which is why the benchmark needed about a minute per cohort.
 
-\subsection{Optimisation}
+\subsection{An Optimisation That Was Reverted}
+\label{sec:tie-breaking}
 
-Two inefficiencies were removed (Section~\ref{ch:implementation}):
-fixed edges are now deleted from the matrix instead of being forced with
-$\infty$, so subproblems shrink as Murty's search goes deeper, and
-student and slot positions are looked up in $O(1)$ instead of $O(n)$.
-Table~\ref{tab:speedup} compares the two versions on the same cohorts.
+Each Murty subproblem forces its fixed edges by setting the rest of
+their rows and columns to $\infty$, so it is still a full $n \times n$
+solve. Deleting those rows and columns instead makes each subproblem
+smaller, and on $K = 50$ ran 4.1, 4.3 and 13.4 times faster on 100, 200
+and 300 students (\commit{b8c78a7}). Every returned cost matched the
+original to $10^{-12}$, and a test checked the $k$-best order against
+brute force, so the change was merged.
+
+Reproducing the chain-cap benchmark (Table~\ref{tab:cap}) with a script
+then showed reach collapsing (Table~\ref{tab:tie}).
 
 \begin{table}[H]
 \centering
-\begin{tabular}{rrrrrc}
+\begin{tabular}{ccccc}
 \toprule
-\textbf{Students} & \textbf{Before} & \textbf{After} & \textbf{Speed-up} & \textbf{Solves before / after} & \textbf{Same results} \\
+\textbf{Seed} & \textbf{Solver} & \textbf{Cap 5} & \textbf{Cap 8} & \textbf{Cap 10} \\
 \midrule
-100 & 0.54\,s & 0.13\,s & 4.1$\times$ & 16\,457 / 9\,992 & yes \\
-200 & 4.31\,s & 1.01\,s & 4.3$\times$ & 42\,988 / 23\,523 & yes \\
-300 & 14.27\,s & 1.07\,s & 13.4$\times$ & 66\,681 / 24\,161 & yes \\
+\multirow{2}{*}{1} & full matrix & 40.3 & 73.7 & 85.0 \\
+                   & cut-out     & 7.3  & 14.7 & 17.7 \\
+\multirow{2}{*}{2} & full matrix & 39.0 & 56.3 & 69.0 \\
+                   & cut-out     & 10.3 & 20.0 & 23.3 \\
+\multirow{2}{*}{3} & full matrix & 18.7 & 49.0 & 66.3 \\
+                   & cut-out     & 1.0  & 5.0  & 11.3 \\
 \bottomrule
 \end{tabular}
-\caption{Murty's search with $K = 50$, mean over five seeded cohorts per size (\commit{b8c78a7})}
-\label{tab:speedup}
+\caption{Students offered a chain (\%), 300 students, $K = 200$}
+\label{tab:tie}
 \end{table}
 
-All fifteen cohorts returned exactly the same $K$ best costs before and
-after, and a new test checks the first 20 assignments of a generated
-pool against a brute-force search over all 720. The number of solves
-also fell: many assignments differ by less than floating-point
-rounding, so the order in which Murty's search breaks near-ties changes
-with the solver, and with it the number of subproblems explored. For
-the same reason individual run times vary; the table reports means.
+The cause is ties. In these cohorts very many assignments share exactly
+the optimal cost: the first 40 that Murty returned for one cohort all
+cost the same. Both solvers were exact, but they broke ties differently,
+and $K = 200$ visits only a tiny slice of the tied set. The full-matrix
+solver's slice holds far more Pareto-improving chains. The change was
+reverted (\commit{0656949}); only the $O(1)$ index lookups were kept.
+These return the very same assignments as the original on every cohort
+checked, and run 1.1--1.5 times faster.
+
+Two lessons follow. An optimisation must be checked on the outputs that
+matter (here, chains offered), not on an intermediate value such as the
+cost, which can agree while the result changes. And because reach
+depends on which tied optima the search visits, breaking ties
+deliberately, for example towards assignments that are more different
+from those already found, is a promising way to raise reach without
+raising $K$.
 
 \subsection{Run Times}
 
@@ -270,7 +290,8 @@ run'' button, and its results are stored in
   augmenting path ($O(n^2)$) is needed instead of a full solve, which
   would bring the search to about $O(Kn^3)$. SciPy cannot be started
   from given potentials, so this needs our own Jonker--Volgenant
-  implementation.
+  implementation, and, after Section~\ref{sec:tie-breaking}, its effect
+  on reach must be measured, not assumed.
   \item \textbf{Parallel subproblems.} The $n$ children of one node are
   independent and can be solved in a process pool, for a constant-factor
   gain.

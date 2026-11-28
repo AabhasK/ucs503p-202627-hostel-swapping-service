@@ -35,9 +35,12 @@ alternative assignments instead of one cuts the longest chain that must
 be approved together from 28 students to 11 at no cost in satisfaction.
 A benchmark over ten seeded cohorts of 300 students set the chain-length
 cap at eight, which reaches 58\% of students with an executable offer.
-Murty's search was later made 4--13 times faster, with identical
-results, by solving each subproblem on a smaller matrix. The code base
-is covered by 152 automated tests, four of them against PostgreSQL, run
+An attempt to speed up Murty's search by 4--13 times returned optima
+of identical cost but, through tie-breaking, 3--10 times fewer
+offerable chains; it was caught by re-running the benchmark and
+reverted. The search is now 1.4 times faster with identical
+assignments. The code base
+is covered by 154 automated tests, six of them against PostgreSQL, run
 in continuous integration on
 Python 3.10--3.12.
 
