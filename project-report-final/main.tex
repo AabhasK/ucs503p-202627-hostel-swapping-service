@@ -21,6 +21,12 @@
 ]{biblatex}
 \addbibresource{references.bib}
 
+% Start chapters on the next page, not the next right-hand page, so no
+% blank pages are inserted (the class itself stays unchanged).
+\makeatletter
+\@openrightfalse
+\makeatother
+
 %% ==================================================
 %% CUSTOMIZE THESE FIELDS FOR YOUR PROJECT
 %% ==================================================
@@ -331,10 +337,18 @@ weekly journals.
 
 \begin{figure}[h]
 \centering
-\includegraphics[width=0.48\textwidth]{figures/student.png}\hfill
-\includegraphics[width=0.48\textwidth]{figures/admin.png}
-\caption{Student page (left) and warden page (right)}
-\label{fig:screens}
+\includegraphics[width=0.72\textwidth]{figures/student.png}
+\caption{Student page: current room, the student's best chains, and an
+offer awaiting replies with its deadline}
+\label{fig:student}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/admin.png}
+\caption{Warden page: round counts and controls, room types, and every
+chain offered with each member's reply}
+\label{fig:admin}
 \end{figure}
 
 % ===== CHAPTER 3: RESULTS & EVALUATION =====
